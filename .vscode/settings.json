@@ -1,9 +1,6 @@
 {
     "files.associations": {
         "inet.h": "c",
-        "string.h": "c",
-        "stat.h": "c",
-        "socket.h": "c",
-        "signal.h": "c"
+        "string.h": "c"
     }
 }
