@@ -192,14 +192,37 @@ void test_player_move()
 	}
 }
 
+void error_handling(char *str) {
+	printf("%s\n", str);
+	exit(1);
+}
+
 int main(int argc, char** argv)
 {
 	int sock;
 	struct sockaddr_in serv_addr;
 	char buffer[BUFFER_MAX];
 
-//	if (argc != 3)
-//		return 1;
+	if (argc != 3) {
+		printf("Usage : %s <IP> <port>\n", argv[0]);
+		return 1;
+	}
+
+	if (argc == 3) {
+	sock = socket(PF_INET, SOCK_STREAM, 0);
+	if (sock == -1) 
+		error_handling("socket() error");
+
+	memset(&serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
+	serv_addr.sin_port = htons(atoi(argv[2]));
+
+	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
+		error_handling("connect() error");
+
+	printf("Connection established\n");
+	}
 
 	if (init_GPIO() == -1) {
 		printf("init failed\n");
@@ -208,6 +231,8 @@ int main(int argc, char** argv)
 
 	init_matrix();
 
+	memset(matrix, 0, sizeof(matrix));
+	update_matrix();
 //	test_led();
 	test_player_move();
 
