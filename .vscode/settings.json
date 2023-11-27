@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "inet.h": "c",
-        "string.h": "c",
-        "gpio.h": "c",
-        "fcntl.h": "c"
-    }
-}

@@ -12,10 +12,10 @@
 
 // pin 번호 -> 수정 가능
 #define DIN 12
-#define CLK 14
+#define CLK 18
 #define CS0 10
-#define CS1 11
-
+const int CS[3] = {10};
+#define CS_NUM 1
 // D0~7에 설정된 값 그대로 이용하여 컨트롤 함
 #define DECODE_MODE 0x09
 #define DECODE_MODE_VAL 0x00
@@ -32,8 +32,8 @@
 #define DISP_HEIGHT 8
 #define DISP_WIDTH 24
 
-// dotMatrix[cs][slave][row]
-unsigned char dotMatrix[2][4][8];
+// matrix[cs][slave][row]
+unsigned char matrix[3][8];
 
 void error_handling(char* message)
 {
@@ -66,42 +66,10 @@ void init_MAX7219(int cs, unsigned short address, unsigned short data)
 {
     // Daisy-Chain방식으로 연결된 4개의 MAX7219에 데이터를 쓰기 위해 for문에서 64bit(16 * 4) 데이터를 보낸 후 CS핀을 HIGH로 활성화하였다.
     GPIOWrite(cs, LOW);
-    for (int i = 0; i < 4; i++)
-        send_MAX7219(address, data);
+    send_MAX7219(address, data);
     GPIOWrite(cs, HIGH);
 }
 
-// 게임 상에서의 x y 좌표를 도트매트릭스 제어에 맞게 변환하여 값을 세팅해준다.
-void set_Matrix(int y, int x)
-{
-    int cs;
-    int ss;
-    int row;
-    int col;
-
-    cs = y / 8;
-    ss = x / 8;
-    row = y % 8;
-    col = x % 8;
-
-    dotMatrix[cs][ss][row] |= 1 << (7 - col);
-}
-
-// dotMatrix에 맞게 도트매트릭스에 출력해준다.
-void update_Matrix()
-{
-    int cs[2] = { CS0, CS1 };
-
-    for (int k = 0; k < 2; k++) {
-        for (int i = 1; i < 9; i++) {
-            GPIOWrite(cs[k], LOW);
-            for (int j = 0; j < 4; j++) {
-                send_MAX7219(i, dotMatrix[k][j][i - 1]);
-            }
-            GPIOWrite(cs[k], HIGH);
-        }
-    }
-}
 
 void intHandler(int dummy)
 {
@@ -117,11 +85,43 @@ void init()
     init_MAX7219(CS0, POWER_DOWN, 0x01);
     init_MAX7219(CS0, TEST_DISPLAY, 0x00);
 
-    init_MAX7219(CS1, DECODE_MODE, 0x00);
-    init_MAX7219(CS1, INTENSITY, 0x01);
-    init_MAX7219(CS1, SCAN_LIMIT, 0x07);
-    init_MAX7219(CS1, POWER_DOWN, 0x01);
-    init_MAX7219(CS1, TEST_DISPLAY, 0x00);
+}
+
+int init_GPIO()
+{
+	if (GPIOExport(CS[0]) == -1)
+        return -1;
+    if (GPIOExport(DIN) == -1)
+		return -1;
+	if (GPIOExport(CLK) == -1)
+		return -1;
+	if (GPIODirection(CS[0], OUT) == -1)
+		return -1;
+	if (GPIODirection(DIN, OUT) == -1)
+		return -1;
+	if (GPIODirection(CLK, OUT) == -1)
+		return -1;
+}
+
+void draw_dot(int row, int col)
+{
+        matrix[row][col] |= (1 << col);
+}
+
+void erase_dot(int row, int col)
+{
+        matrix[row][col] &= ~(1 << col);
+}
+
+void update_matrix()
+{
+        for (int i = 0; i < 8; i++) {
+                for (int cs = 0; cs < CS_NUM; cs++) { // 일단은 DM 1개밖에 없음
+                        GPIOWrite(CS[cs], LOW);
+                        send_MAX7219(i + 1, matrix[cs][i]);
+                        GPIOWrite(CS[cs], HIGH);
+                }
+        }
 }
 
 int main(int argc, char** argv)
@@ -132,25 +132,21 @@ int main(int argc, char** argv)
 
     signal(SIGINT, intHandler);
 
-    if (wiringPiSetup() < 0) {
+    if (init_GPIO() < 0) {
         return 1;
     }
-
-    pinMode(DIN, OUTPUT);
-    pinMode(CLK, OUTPUT);
-    pinMode(CS0, OUTPUT);
 
     init();
 
     sleep(1);
 
-    if (argc != 3) {
+   /* if (argc != 3) {
         printf("Usage : %s <IP> <port>\n", argv[0]);
         exit(1);
-    }
+    }*/
 
     // 서버와 통신할 socket 생성
-    sock = socket(PF_INET, SOCK_STREAM, 0);
+  /*  sock = socket(PF_INET, SOCK_STREAM, 0);
     if (sock == -1)
         error_handling("socket() error");
 
@@ -162,43 +158,26 @@ int main(int argc, char** argv)
     // 서버와 연결
     if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
         error_handling("connect() error");
+*/
 
-    int ball_y, ball_x;
-    int p1_y, p1_x, p1_l;
-    int p2_y, p2_x, p2_l;
+	int a = 0;
+	while (1) {
+		memset(matrix, 0, sizeof(matrix));
+		a = (a + 1) & 0x07;
+		if (a & 1) {
+			for (int i = 0; i < 4; i++)
+				draw_dot(a, i);
+		}
+		else {
+			for (int i=4;i<8;i++)
+				draw_dot(a, i);
+		}
 
-    while (1) {
-        // 서버로 부터 데이터 받아오기
-        read(sock, buf, sizeof(buf));
-        ball_y = buf[0]; // 볼 y좌표
-        ball_x = buf[1]; // 볼 x좌표
-        p1_y = buf[2]; // 플레이어1 y좌표
-        p1_x = buf[3]; // 플레이어1 x좌표
-        p1_l = buf[4]; // 플레이어1 막대길이
-        p2_y = buf[5]; // 플레이어2 y좌표
-        p2_x = buf[6]; // 플레이어2 x좌표
-        p2_l = buf[7]; // 플레이어2 막대길이
+		update_matrix();
+		printf("a: %d\n", a);
 
-        memset(dotMatrix, 0, sizeof(dotMatrix));
-
-        // dotMatrix에 플레이어 막대와 볼 표시하기
-        for (int i = 0; i < DISP_HEIGHT; i++) {
-            for (int j = 0; j < DISP_WIDTH; j++) {
-                if (i == ball_y && j == ball_x)
-                    set_Matrix(i, j);
-                else if (p1_y <= i && i < p1_y + p1_l && j == p1_x)
-                    set_Matrix(i, j);
-                else if (p2_y <= i && i < p2_y + p2_l && j == p2_x)
-                    set_Matrix(i, j);
-            }
-        }
-
-        // 실제 도트매트릭스에 출력하기
-        update_Matrix();
-
-        // 프레임 조절
-        usleep(10000);
-    }
+		usleep(1000 * 500);
+	}
 
     return (0);
 }
