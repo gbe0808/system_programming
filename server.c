@@ -12,6 +12,10 @@
 #define MAX_CLIENT 100
 #define BUF_SIZE 1024
 
+typedef struct s_sockets {
+	int serv_sock, clnt_sock;
+} Sockets;
+
 pthread_t clients[MAX_CLIENT];
 
 void err(char* str)
@@ -20,15 +24,15 @@ void err(char* str)
     exit(1);
 }
 
-void* shell(void* val)
+void* shell(void* ptr)
 {
-    int clnt_sock = *(int*)val;
+	Sockets socks = *(Sockets *)ptr;
     pid_t pid = fork();
     if (pid < 0)
         err("fork error");
     else if (pid == 0) {
-        dup2(clnt_sock, STDIN_FILENO);
-        dup2(clnt_sock, STDOUT_FILENO);
+        dup2(socks.clnt_sock, STDIN_FILENO);
+        dup2(socks.clnt_sock, STDOUT_FILENO);
         // close(STDIN_FILENO);
         // close(STDOUT_FILENO);
 
@@ -36,7 +40,7 @@ void* shell(void* val)
         exit(0);
     }
     else {
-        close(clnt_sock);
+        close(socks.clnt_sock);
         wait(&pid);
     }
 
@@ -48,30 +52,31 @@ int main(int ac, char** av)
     if (ac != 2)
         return 1;
 
-    int serv_sock, clnt_sock, client_num = 0;
+	Sockets socks;
+    int client_num = 0;
     struct sockaddr_in serv_addr, clnt_addr;
     socklen_t clnt_addr_size;
+	memset(&socks, 0, sizeof(socks));
 
-    serv_sock = socket(PF_INET, SOCK_STREAM, 0);
+    socks.serv_sock = socket(PF_INET, SOCK_STREAM, 0);
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     serv_addr.sin_port = htons(atoi(av[1]));
 
-    if (bind(serv_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
+    if (bind(socks.serv_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
         err("bind error\n");
-    if (listen(serv_sock, 5) == -1)
+    if (listen(socks.serv_sock, 5) == -1)
         err("listen error\n");
 
     while (1) {
         clnt_addr_size = sizeof(clnt_addr);
-        printf("waiting accept\n");
-        clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
+        socks.clnt_sock = accept(socks.serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
         printf("accepted\n");
-        if (clnt_sock == -1)
+        if (socks.clnt_sock == -1)
             continue;
 
-        pthread_create(&clients[client_num], NULL, shell, &client_num);
+        pthread_create(&clients[client_num], NULL, shell, &socks);
         ++client_num;
     }
 

@@ -18,14 +18,14 @@ void err(char* str)
 }
 
 void* thread_input_to_socket(void* sock_ptr) {
-    int sock = *(int*)sock_ptr;
+    int sock = *(int *)sock_ptr;
     char command[BUF_SIZE];
 
     while (1) {
         memset(command, 0, sizeof(command));
         read(STDIN_FILENO, command, sizeof(command));
-        //scanf("%s", command);
-        printf("command: %s", command);
+		command[strlen(command)] = '\n';
+		printf("command: %s\n", command);
         if (write(sock, command, strlen(command)) == -1)
             err("socket write error");
     }
@@ -34,18 +34,17 @@ void* thread_input_to_socket(void* sock_ptr) {
 }
 
 void* thread_socket_to_output(void* sock_ptr) {
-    int sock = *(int*)sock_ptr;
+    int sock = *(int *)sock_ptr;
     char message[BUF_SIZE];
 
     while (1) {
         memset(message, 0, sizeof(message));
-        printf("output socket waiting for read ... \n");
+		write(1, "\n", 1);
         int len = read(sock, message, BUF_SIZE - 1);
         if (len == -1) {
             printf("read error\n");
             break;
         }
-        printf("message: %s", message);
     }
 
     return NULL;
@@ -75,7 +74,6 @@ int main(int ac, char** av)
     if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
         err("connect() error");
 
-    printf("connect success\n");
     pthread_create(&input_thread, NULL, thread_input_to_socket, &sock);
     // close(STDIN_FILENO);
     pthread_create(&output_thread, NULL, thread_socket_to_output, &sock);
