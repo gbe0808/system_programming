@@ -44,6 +44,11 @@ typedef struct s_player {
 	short health;
 } Player;
 
+typedef struct s_bullet {
+	int lane, col, grade;
+	long long cool_time;
+} Bullet
+
 Player player;
 
 unsigned char matrix[3][8];
@@ -159,16 +164,16 @@ void test_led()
 			for (int i = 0; i < 4; i++)
 				draw_dot(0, a, i);
 			for (int i = 5; i < 7; i++)
-				draw_dot(1, a, i);
+				draw_dot(2, a, i);
 		}
 		else {
 			for (int i = 4; i < 8; i++)
 				draw_dot(0, a, i);
 			for (int i = 1; i < 3; i++)
-				draw_dot(1, a, i);
+				draw_dot(2, a, i);
 		}
 		for (int i=0;i<3;i++)
-			draw_dot(2, a, i + 2);
+			draw_dot(1, a, i + 2);
 
 		update_matrix();
 		printf("a: %d\n", a);
@@ -214,6 +219,21 @@ void test_socket(int sock)
 void error_handling(char *str) {
 	printf("%s\n", str);
 	exit(1);
+}
+
+int func()
+{
+	int time_overed = 0;
+
+//	입력받는 thread 생성해서 전역변수를 계속 갱신해줌
+
+	while (1) {
+//		if (time_overed)
+//			return 1;
+	
+		move_player(1);
+
+	}
 }
 
 int main(int argc, char** argv)
