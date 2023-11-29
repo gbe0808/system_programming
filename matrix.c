@@ -14,13 +14,13 @@ const int CS[3] = { 10 };
 #define DIN 12
 #define CLK 18
 
-#define CS_NUM 1
+#define CS_NUM 3
 
 #define DECODE_MODE 0x09
 #define DECODE_MODE_VAL 0x00
 
 #define INTENSITY 0x0a
-#define INTENSITY_VAL 0x0a
+#define INTENSITY_VAL 0x01
 
 #define SCAN_LIMIT 0x0b
 #define SCAN_LIMIT_VAL 0x07
@@ -105,20 +105,15 @@ void send_MAX7219(unsigned short reg_number, unsigned short data)
 	send_SPI_16bits((reg_number << 8) + data);
 }
 
-void draw_dot(int row, int col)
+void draw_dot(int cs, int row, int col)
 {
-	matrix[0][row] |= (1 << col);
-}
-
-void erase_dot(int row, int col)
-{
-	matrix[0][row] &= ~(1 << col);
+	matrix[cs][row] |= (1 << col);
 }
 
 void update_matrix()
 {
 	for (int i = 0; i < 8; i++) {
-		for (int cs = 0; cs < CS_NUM; cs++) { // 일단은 DM 1개밖에 없음
+		for (int cs = 0; cs < CS_NUM; cs++) { 
 			GPIOWrite(CS[cs], LOW);
 			send_MAX7219(i + 1, matrix[cs][i]);
 			GPIOWrite(CS[cs], HIGH);
@@ -162,17 +157,23 @@ void test_led()
 		a = (a + 1) & 0x07;
 		if (a & 1) {
 			for (int i = 0; i < 4; i++)
-				draw_dot(a, i);
+				draw_dot(0, a, i);
+			for (int i = 5; i < 7; i++)
+				draw_dot(1, a, i);
 		}
 		else {
 			for (int i = 4; i < 8; i++)
-				draw_dot(a, i);
+				draw_dot(0, a, i);
+			for (int i = 1; i < 3; i++)
+				draw_dot(1, a, i);
 		}
+		for (int i=0;i<3;i++)
+			draw_dot(2, a, i + 2);
 
 		update_matrix();
 		printf("a: %d\n", a);
 
-		usleep(1000 * 500);
+		usleep(1000 * 100);
 	}
 }
 
@@ -185,7 +186,7 @@ void test_player_move()
 		move_player(k);
 		for (int i=player.row;i<player.row+2;i++) {
 			for (int j=player.col;j<player.col+2;j++) {
-				draw_dot(i, j);
+				draw_dot(0, i, j);
 			}
 		}
 		update_matrix();
@@ -203,7 +204,7 @@ void test_socket(int sock)
 		move_player(buffer[0]-'0');
 		for (int i=player.row;i<player.row+2;i++) {
 			for (int j=player.col;j<player.col+2;j++) {
-				draw_dot(i, j);
+				draw_dot(0, i, j);
 			}
 		}
 		update_matrix();
@@ -250,8 +251,8 @@ int main(int argc, char** argv)
 
 	memset(matrix, 0, sizeof(matrix));
 	update_matrix();
-//	test_led();
-	test_player_move();
+	test_led();
+//	test_player_move();
 //	test_socket(sock);
 
 	return (0);
