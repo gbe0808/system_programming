@@ -46,8 +46,8 @@ typedef struct s_player {
 
 typedef struct s_bullet {
 	int lane, col, grade;
-	long long cool_time;
-} Bullet
+	long long halt_time;
+} Bullet;
 
 Player player;
 
@@ -81,7 +81,6 @@ void ready_to_send(int cs, unsigned short address, unsigned short data)
 	send_MAX7219(address, data);
 	GPIOWrite(cs,HIGH);
 }
-
 
 void init_matrix()
 {
