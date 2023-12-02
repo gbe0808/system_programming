@@ -224,13 +224,13 @@ int func()
 {
 	int time_overed = 0;
 
-//	입력받는 thread 생성해서 전역변수를 계속 갱신해줌
-
 	while (1) {
 //		if (time_overed)
 //			return 1;
 	
+		memset(matrix, 0, sizeof(matrix));
 		move_player(1);
+		make_new_bullet();
 
 	}
 }
