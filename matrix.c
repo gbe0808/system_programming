@@ -144,13 +144,18 @@ void draw_dot(int cs, int row, int col)
 
 void update_matrix()
 {
-	const int d[3] = {0, 2, 1};
-	for (int cs = 0; cs < CS_NUM; cs++) {
-		for (int i = 0; i < 8; i++) {
-			GPIOWrite(CS[d[cs]], LOW);
-			send_MAX7219(i + 1, matrix[cs][i]);
-			GPIOWrite(CS[d[cs]], HIGH);
-		}
+/*	for (int i = 0 ; i < 3; i++) {
+		for (int j=0;j<8;j++) {
+			printf("%x ", matrix[i][j]);
+		} printf("\n");
+	} printf("\n");
+*/
+
+	for (int i = 0; i < 8; i++) {
+		GPIOWrite(CS[0], LOW);
+		for (int j=2;j>=0;j--) 
+			send_MAX7219(i + 1, matrix[j][i]);
+		GPIOWrite(CS[0], HIGH);
 	}
 }
 
@@ -209,7 +214,8 @@ void update_board(t_list *bullets)
 	pthread_mutex_unlock(&matrix_mtx);
 	if (flag) {
 		printf("Hit!\n");
-//		write(sock, "1", 1);
+		// socket
+		write(sock, "1", 1);
 	}
 }
 
@@ -253,21 +259,27 @@ int move_player(short key)
 void test_led()
 {
     usleep(1000 * 1000);
-    int a = 0;
+    int a = 6;
     while (1) {
         memset(matrix, 0, sizeof(matrix));
 		a = (a + 1) & 0x07;
         if (a & 1) {
-			for (int i = 0; i < 4; i++)
+			for (int i = 0; i < 4; i++) {
 				draw_dot(0, a, i);
-			for (int i = 5; i <= 7; i++)
 				draw_dot(1, a, i);
+//				draw_dot(2, a, i);
+			}
+//			for (int i = 5; i <= 7; i++)
+//				draw_dot(1, a, i);
 		}
 		else {
-			for (int i = 4; i < 8; i++)
+			for (int i = 4; i < 8; i++) {
 				draw_dot(0, a, i);
-			for (int i = 1; i <= 3; i++)
 				draw_dot(1, a, i);
+//				draw_dot(2, a, i);
+			}
+//			for (int i = 1; i <= 3; i++)
+//				draw_dot(1, a, i);
 		}
 		for (int i=1;i<3;i++)
 			draw_dot(2, a, i + 2);
@@ -335,11 +347,11 @@ long long get_millisec(char is_first)
 
 
 void *input_from_server(void *arg) {
-	int sock = *(int *)arg;
 	char tmp[6];
 
 	while (1) {
-		int len = read(0, tmp, sizeof(tmp));
+		// read from socket
+		int len = read(sock, tmp, sizeof(tmp));
 		if (tmp[0] == '9' || len < 0) {
 			finished = true;
 			return NULL;
@@ -357,7 +369,7 @@ void *move_player_from_input(void *arg) {
 	char ch;
 
 	while (1) {
-		usleep(10000);
+		usleep(100);
 		if (finished)
 			return NULL;
 		pthread_mutex_lock(&string_mtx);
@@ -536,12 +548,12 @@ int main(int argc, char** argv)
 		bullets = lstnew(NULL);
 		get_millisec(1);
 
-      test_led();
+//      test_led();
 //      test_player_move();
 //      test_socket(sock);
 
 
-//		func();
+		func();
         return (0);
 }
 
