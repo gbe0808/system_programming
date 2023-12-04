@@ -161,9 +161,8 @@ void update_matrix()
 
 void board_to_matrix()
 {
-	int a;
 
-	for (int i = 0; i < CS_NUM; i++) {
+/*	for (int i = 0; i < CS_NUM; i++) {
 		a = 0;
 		for (int j = 0; j < 8; j++) {
 			for (int k = 0; k < 8; k++) {
@@ -173,6 +172,25 @@ void board_to_matrix()
 			}
 			a >>= 1;
 			matrix[i][j] = a;
+		}
+	}
+*/
+	memset(matrix, 0, sizeof(matrix));
+	for (int i = 0; i < 8; i++)
+	{
+		for (int j = 0; j < 24; j++)
+		{
+			if (board[i][j] == 0)
+				continue;
+			int a, my, mx = i;
+			if (j < 8)
+				a = 1;
+			else if (j < 16)
+				a = 2;
+			else
+				a = 3;
+			my = a * 8 - 1 - j;
+			matrix[a - 1][my] |= (1 << (7 - mx));
 		}
 	}
 }
@@ -194,7 +212,7 @@ void update_board(t_list *bullets)
 	while (cur) {
 		Bullet* cur_bullet = (Bullet *)cur->bullet;
 		int lane = cur_bullet->lane * 2;
-		for (int i=0;i<2;i++) {
+		for (int i = 0; i < 2; i++) {
 			board[lane + i][cur_bullet->col] |= 2;
 			if (board[lane + i][cur_bullet->col] == 3) {
 				flag = true;
@@ -222,25 +240,25 @@ void update_board(t_list *bullets)
 
 int move_player(short key)
 {
-        if (key == UP) {
+        if (key == RIGHT) {
                 if (player.row <= 0)
                         return 0;
                 --player.row;
         }
 
-        else if (key == DOWN) {
+        else if (key == LEFT) {
                 if (player.row >= 6)
                         return 0;
                 ++player.row;
         }
 
-        else if (key == LEFT) {
+        else if (key == UP) {
                 if (player.col <= 0)
                         return 0;
                 --player.col;
         }
 
-        else if (key == RIGHT) {
+        else if (key == DOWN) {
                 if (player.col >= 6)
                         return 0;
                 ++player.col;
