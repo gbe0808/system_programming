@@ -52,8 +52,8 @@ typedef struct s_player {
 } Player;
 
 typedef struct s_bullet {
-        int lane, col, grade;
-        long long halt_time;
+	int lane, col, grade;
+	long long halt_time;
 } Bullet;
 
 Player player;
