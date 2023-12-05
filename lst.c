@@ -35,16 +35,16 @@ void    lstclear(t_list **lst)
                 return ;
         while (*lst)
         {
-                tmp = *lst;
-                *lst = (*lst)->next;
-                lstdelone(tmp);
+			tmp = *lst;
+            *lst = (*lst)->next;
+            lstdelone(tmp);
         }
 }
 
 void    lstdelone(t_list *lst)
 {
     free(lst->bullet);
-        free(lst);
+    free(lst);
 }
 
 void    lstiter(t_list *lst, void (*f)(void *))

@@ -67,6 +67,7 @@ t_list *bullets;
 pthread_mutex_t string_mtx, board_mtx, matrix_mtx, bullet_mtx;
 
 void ready_to_send(int cs, unsigned short address, unsigned short data);
+void init_matrix();
 
 int init_GPIO()
 {
@@ -87,6 +88,8 @@ int init_GPIO()
 	if (GPIODirection(CLK, OUT) == -1)
 		return -1;
 
+    init_matrix();
+
     player.row = 0;
     player.col = 0;
     player.health = 3;
@@ -96,15 +99,13 @@ int init_GPIO()
 
 void init_matrix()
 {
-        for (int cs = 0; cs < CS_NUM; cs++) {
-                ready_to_send(CS[cs], DECODE_MODE, DECODE_MODE_VAL);
-                ready_to_send(CS[cs], INTENSITY, INTENSITY_VAL);
-                ready_to_send(CS[cs], SCAN_LIMIT, SCAN_LIMIT_VAL);
-                ready_to_send(CS[cs], POWER_DOWN, POWER_DOWN_VAL);
-                ready_to_send(CS[cs], TEST_DISPLAY, TEST_DISPLAY_VAL);
-        }
-		matrix[0][6] = 0xC0;
-		matrix[0][7] = 0xC0;
+    for (int cs = 0; cs < CS_NUM; cs++) {
+        ready_to_send(CS[cs], DECODE_MODE, DECODE_MODE_VAL);
+        ready_to_send(CS[cs], INTENSITY, INTENSITY_VAL);
+        ready_to_send(CS[cs], SCAN_LIMIT, SCAN_LIMIT_VAL);
+        ready_to_send(CS[cs], POWER_DOWN, POWER_DOWN_VAL);
+        ready_to_send(CS[cs], TEST_DISPLAY, TEST_DISPLAY_VAL);
+    }
 }
 
 void init_mutex()
@@ -153,7 +154,7 @@ void update_matrix()
 
 	for (int i = 0; i < 8; i++) {
 		GPIOWrite(CS[0], LOW);
-		for (int j=2;j>=0;j--) 
+		for (int j = 2; j >= 0; j--) 
 			send_MAX7219(i + 1, matrix[j][i]);
 		GPIOWrite(CS[0], HIGH);
 	}
@@ -269,35 +270,34 @@ int move_player(short key)
 		pthread_mutex_lock(&board_mtx);
 		update_board(bullets);
 		pthread_mutex_unlock(&board_mtx);
-		printf("Fin\n");
 		return 1;
 }
 
 
 void test_led()
 {
-    usleep(1000 * 1000);
-    int a = 6;
+    usleep(1000 * 500);
+    int a = -1;
     while (1) {
         memset(matrix, 0, sizeof(matrix));
 		a = (a + 1) & 0x07;
         if (a & 1) {
 			for (int i = 0; i < 4; i++) {
 				draw_dot(0, a, i);
-				draw_dot(1, a, i);
+//				draw_dot(1, a, i);
 //				draw_dot(2, a, i);
 			}
-//			for (int i = 5; i <= 7; i++)
-//				draw_dot(1, a, i);
+			for (int i = 5; i <= 7; i++)
+				draw_dot(1, a, i);
 		}
 		else {
 			for (int i = 4; i < 8; i++) {
 				draw_dot(0, a, i);
-				draw_dot(1, a, i);
+//				draw_dot(1, a, i);
 //				draw_dot(2, a, i);
 			}
-//			for (int i = 1; i <= 3; i++)
-//				draw_dot(1, a, i);
+			for (int i = 1; i <= 3; i++)
+				draw_dot(1, a, i);
 		}
 		for (int i=1;i<3;i++)
 			draw_dot(2, a, i + 2);
@@ -306,44 +306,8 @@ void test_led()
 		printf("a: %d\n", a);
 
 		usleep(1000 * 200);
-        }
+    }
 }
-
-/*
-void test_player_move()
-{
-        int k;
-        while (1) {
-                memset(matrix, 0, sizeof(matrix));
-                scanf("%d", &k);
-                move_player(k);
-                for (int i=player.row;i<player.row+2;i++) {
-                        for (int j=player.col;j<player.col+2;j++) {
-                                draw_dot(0, i, j);
-                        }
-                }
-                update_matrix();
-        }
-}
-
-void test_socket(int sock)
-{
-        char buffer[BUFFER_MAX];
-
-        while (1) {
-                memset(matrix, 0, sizeof(matrix));
-                int len = read(sock, buffer, sizeof(buffer));
-                printf("cur: %c\n", buffer[0]);
-                move_player(buffer[0] - '0');
-                for (int i=player.row;i<player.row+2;i++) {
-                        for (int j=player.col;j<player.col+2;j++) {
-                                draw_dot(0, i, j);
-                        }
-                }
-                update_matrix();
-        }
-}
-*/
 
 void error_handling(char *str) {
         printf("%s\n", str);
@@ -369,14 +333,19 @@ void *input_from_server(void *arg) {
 
 	while (1) {
 		// read from socket
+		usleep(10);
 		int len = read(sock, tmp, sizeof(tmp));
-		if (tmp[0] == '9' || len < 0) {
-			finished = true;
+		printf("tmp: %s\n", tmp);
+		if (tmp[0] == '9' || len <= 0) {
+			finished = 1;
+			printf("Finished!!\n");
 			return NULL;
 		}
+		if (len <= 4 || tmp[0] < '0')
+			continue;
+		printf("len: %d\n", len);
 		pthread_mutex_lock(&string_mtx);
 		strcpy(msg, tmp);
-		printf("msg: %s\n", msg);
 		pthread_mutex_unlock(&string_mtx);
 		// exit status -> return NULL
 	}
@@ -386,8 +355,9 @@ void *input_from_server(void *arg) {
 void *move_player_from_input(void *arg) {
 	char ch;
 
+	update_matrix();
 	while (1) {
-		usleep(100);
+		usleep(10);
 		if (finished)
 			return NULL;
 		pthread_mutex_lock(&string_mtx);
@@ -509,25 +479,33 @@ int func()
 
 	init_mutex();
 
-	pthread_create(&input_from_server_t, NULL, input_from_server, &sock);
-	pthread_create(&move_player_from_input_t, NULL, move_player_from_input, NULL);
-	pthread_create(&make_bullet_t, NULL, make_bullet, NULL);
-	pthread_create(&move_bullet_t, NULL, move_bullet, NULL);
-
 	while (1) {
-		if (finished)
-			break;
-		usleep(100);
-    }
+		memset(matrix, 0, sizeof(matrix));
+		memset(board, 0, sizeof(board));
+		matrix[0][6] = 0xC0;
+		matrix[0][7] = 0xC0;
+		pthread_create(&input_from_server_t, NULL, input_from_server, &sock);
+		pthread_create(&move_player_from_input_t, NULL, move_player_from_input, NULL);
+		pthread_create(&make_bullet_t, NULL, make_bullet, NULL);
+		pthread_create(&move_bullet_t, NULL, move_bullet, NULL);
 
-	lstclear(&bullets);
-	pthread_join(input_from_server_t, NULL);
-	pthread_join(move_player_from_input_t, NULL);
-	pthread_join(make_bullet_t, NULL);
-	pthread_join(move_bullet_t, NULL);
-	memset(matrix, 0, sizeof(matrix));
-	update_board(bullets);
+		while (1) {
+			write(sock, "0", 1);
+			usleep(200 * 1000);
+			if (finished) {
+				sleep(2);
+				break;
+			}
+		}
 
+		lstclear(&bullets);
+		pthread_join(input_from_server_t, NULL);
+		pthread_join(move_player_from_input_t, NULL);
+		pthread_join(make_bullet_t, NULL);
+		pthread_join(move_bullet_t, NULL);
+		memset(matrix, 0, sizeof(matrix));
+		update_matrix();
+	}
 	return 1;
 }
 
@@ -535,55 +513,52 @@ int main(int argc, char** argv)
 {
 		struct sockaddr_in serv_addr;
 
+        if (init_GPIO() == -1) {
+            printf("init failed\n");
+            return 1;
+        }
+
         if (argc != 3) {
                 printf("Usage : %s <IP> <port>\n", argv[0]);
 //              return 1;
         }
+	
+		memset(matrix, 0, sizeof(matrix));
+		update_matrix();
 
         if (argc == 3) {
-				char start_msg[2];
-				start_msg[0] = '0';
-                sock = socket(PF_INET, SOCK_STREAM, 0);
-                if (sock == -1)
-                        error_handling("socket() error");
+			char start_msg[2];
+			start_msg[0] = '0';
+            sock = socket(PF_INET, SOCK_STREAM, 0);
+            if (sock == -1)
+                error_handling("socket() error");
 
-                memset(&serv_addr, 0, sizeof(serv_addr));
-                serv_addr.sin_family = AF_INET;
-                serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
-                serv_addr.sin_port = htons(atoi(argv[2]));
+            memset(&serv_addr, 0, sizeof(serv_addr));
+            serv_addr.sin_family = AF_INET;
+            serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
+            serv_addr.sin_port = htons(atoi(argv[2]));
 
-                if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
-                        error_handling("connect() error");
+			if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
+				error_handling("connect() error");
 
-                printf("Connection established\n");
-				while (start_msg[0] == '0') {
-					read(sock, start_msg, sizeof(start_msg));
-					if (start_msg[0] == '1') {
-						printf("Game Start!\n");	
-						break;
-					}
+            printf("Connection established\n");
+			while (start_msg[0] == '0') {
+				read(sock, start_msg, sizeof(start_msg));
+				if (start_msg[0] == '1') {
+					printf("Game Start!\n");	
+					break;
 				}
-				
+			}
         }
 
-        if (init_GPIO() == -1) {
-                printf("init failed\n");
-                return 1;
-        }
-
-        memset(matrix, 0, sizeof(matrix));
-        init_matrix();
-
-        update_matrix();
+		memset(matrix, 0, sizeof(matrix));
+		update_matrix();
 		bullets = lstnew(NULL);
 		get_millisec(1);
 
-      test_led();
-//      test_player_move();
-//      test_socket(sock);
+   //   test_led();
 
-
-//		func();
+		func();
         return (0);
 }
 
