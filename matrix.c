@@ -103,8 +103,8 @@ void init_matrix()
                 ready_to_send(CS[cs], POWER_DOWN, POWER_DOWN_VAL);
                 ready_to_send(CS[cs], TEST_DISPLAY, TEST_DISPLAY_VAL);
         }
-		matrix[0][0] = 0xC0;
-		matrix[0][1] = 0xC0;
+		matrix[0][6] = 0xC0;
+		matrix[0][7] = 0xC0;
 }
 
 void init_mutex()
@@ -240,25 +240,25 @@ void update_board(t_list *bullets)
 
 int move_player(short key)
 {
-        if (key == RIGHT) {
+        if (key == UP) {
                 if (player.row <= 0)
                         return 0;
                 --player.row;
         }
 
-        else if (key == LEFT) {
+        else if (key == DOWN) {
                 if (player.row >= 6)
                         return 0;
                 ++player.row;
         }
 
-        else if (key == UP) {
+        else if (key == LEFT) {
                 if (player.col <= 0)
                         return 0;
                 --player.col;
         }
 
-        else if (key == DOWN) {
+        else if (key == RIGHT) {
                 if (player.col >= 6)
                         return 0;
                 ++player.col;
@@ -525,6 +525,8 @@ int func()
 	pthread_join(move_player_from_input_t, NULL);
 	pthread_join(make_bullet_t, NULL);
 	pthread_join(move_bullet_t, NULL);
+	memset(matrix, 0, sizeof(matrix));
+	update_board(bullets);
 
 	return 1;
 }
@@ -539,6 +541,8 @@ int main(int argc, char** argv)
         }
 
         if (argc == 3) {
+				char start_msg[2];
+				start_msg[0] = '0';
                 sock = socket(PF_INET, SOCK_STREAM, 0);
                 if (sock == -1)
                         error_handling("socket() error");
@@ -552,6 +556,14 @@ int main(int argc, char** argv)
                         error_handling("connect() error");
 
                 printf("Connection established\n");
+				while (start_msg[0] == '0') {
+					read(sock, start_msg, sizeof(start_msg));
+					if (start_msg[0] == '1') {
+						printf("Game Start!\n");	
+						break;
+					}
+				}
+				
         }
 
         if (init_GPIO() == -1) {
@@ -566,12 +578,12 @@ int main(int argc, char** argv)
 		bullets = lstnew(NULL);
 		get_millisec(1);
 
-//      test_led();
+      test_led();
 //      test_player_move();
 //      test_socket(sock);
 
 
-		func();
+//		func();
         return (0);
 }
 
