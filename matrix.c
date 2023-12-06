@@ -60,7 +60,7 @@ Player player;
 
 unsigned char matrix[3][8];
 unsigned char board[HEIGHT][WIDTH];
-short finished;
+short finished, state_to_finish;
 int sock;
 char msg[6] = {'0', '0', '0', '0', '0'};
 t_list *bullets;
@@ -335,8 +335,13 @@ void *input_from_server(void *arg) {
 		// read from socket
 		usleep(10);
 		int len = read(sock, tmp, sizeof(tmp));
+		if (len == -1) {
+			finished = 1;
+			printf("socket disconnected\n");
+			return NULL;
+		}
 		printf("tmp: %s\n", tmp);
-		if (tmp[0] == '9' || len <= 0) {
+		if (tmp[0] == '9' || len == 0) {
 			finished = 1;
 			printf("Finished!!\n");
 			return NULL;
@@ -473,10 +478,11 @@ void *move_bullet(void *arg) {
 	return NULL;
 }
 
+pthread_t input_from_server_t, move_player_from_input_t, make_bullet_t, move_bullet_t;
+
 int func()
 {
-	pthread_t input_from_server_t, move_player_from_input_t, make_bullet_t, move_bullet_t;
-
+	state_to_finish = 1;
 	init_mutex();
 
 	while (1) {
@@ -493,20 +499,58 @@ int func()
 			write(sock, "0", 1);
 			usleep(200 * 1000);
 			if (finished) {
-				sleep(2);
+				sleep(1);
 				break;
 			}
 		}
 
-		lstclear(&bullets);
+		lstclear(&bullets->next);
 		pthread_join(input_from_server_t, NULL);
 		pthread_join(move_player_from_input_t, NULL);
 		pthread_join(make_bullet_t, NULL);
 		pthread_join(move_bullet_t, NULL);
 		memset(matrix, 0, sizeof(matrix));
 		update_matrix();
+		
+		if (finished)
+			break;
 	}
+
+	pthread_mutex_destroy(&string_mtx, NULL);
+	pthread_mutex_destroy(&board_mtx, NULL);
+	pthread_mutex_destroy(&matrix_mtx, NULL);
+	pthread_mutex_destroy(&bullet_mtx, NULL);
+	
+	state_to_finish = 0;
 	return 1;
+}
+
+void signal_handler(int signal)
+{
+	finished = 1;
+	memset(matrix, 0, sizeof(matrix));
+	update_matrix();
+	while (state_to_finish)
+		usleep(10);
+	exit(1);
+}
+
+void set_signal()
+{
+	struct sigaction act_int;
+	struct sigaction act_quit;
+
+	memset(&act_int, 0, sizeof(act_int));
+	memset(&act_quit, 0, sizeof(act_quit));
+
+	act_int.sa_flags = SA_RESTART;
+	act_int.sa_handler = signal_handler;
+
+	act_quit.sa_flags = SA_RESTART;
+	act_quit.sa_handler = signal_handler;
+
+	if (sigaction(SIGINT, &act_int, NULL) | sigaction(SIGQUIT, &act_quit, NULL)) 
+		error_handling("sigaction error");
 }
 
 int main(int argc, char** argv)
@@ -523,6 +567,7 @@ int main(int argc, char** argv)
 //              return 1;
         }
 	
+		set_signal();
 		memset(matrix, 0, sizeof(matrix));
 		update_matrix();
 

@@ -11,9 +11,6 @@
 #define LOW 0
 #define HIGH 1
 
-#define PIN 20
-#define POUT2 21
-
 #define BUFFER_MAX 256
 #define VALUE_MAX 40
 #define DIRECTION_MAX 40
