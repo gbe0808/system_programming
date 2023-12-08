@@ -18,7 +18,7 @@ const int CS[3] = { 10, 0, 0 };
 #define DIN 12
 #define CLK 18
 
-#define CS_NUM 3
+#define CS_NUM 1
 
 #define DECODE_MODE 0x09
 #define DECODE_MODE_VAL 0x00
@@ -40,15 +40,15 @@ const int CS[3] = { 10, 0, 0 };
 #define SLOW_BULLET 300
 
 enum Directions {
-        UP = 1,
-        DOWN,
-        LEFT,
-        RIGHT
+	UP = 1,
+	DOWN,
+	LEFT,
+	RIGHT
 };
 
 typedef struct s_player {
-        short row, col;
-        short health;
+	short row, col;
+	short health;
 } Player;
 
 typedef struct s_bullet {
@@ -99,13 +99,13 @@ int init_GPIO()
 
 void init_matrix()
 {
-    for (int cs = 0; cs < CS_NUM; cs++) {
-        ready_to_send(CS[cs], DECODE_MODE, DECODE_MODE_VAL);
-        ready_to_send(CS[cs], INTENSITY, INTENSITY_VAL);
-        ready_to_send(CS[cs], SCAN_LIMIT, SCAN_LIMIT_VAL);
-        ready_to_send(CS[cs], POWER_DOWN, POWER_DOWN_VAL);
-        ready_to_send(CS[cs], TEST_DISPLAY, TEST_DISPLAY_VAL);
-    }
+	for (int cs = 0; cs < CS_NUM; cs++) {
+		ready_to_send(CS[cs], DECODE_MODE, DECODE_MODE_VAL);
+		ready_to_send(CS[cs], INTENSITY, INTENSITY_VAL);
+		ready_to_send(CS[cs], SCAN_LIMIT, SCAN_LIMIT_VAL);
+		ready_to_send(CS[cs], POWER_DOWN, POWER_DOWN_VAL);
+		ready_to_send(CS[cs], TEST_DISPLAY, TEST_DISPLAY_VAL);
+	}
 }
 
 void init_mutex()
@@ -116,11 +116,11 @@ void init_mutex()
 	pthread_mutex_init(&bullet_mtx, NULL);
 }
 
-void send_SPI_16bits(unsigned short data)
+void send_16bits(unsigned short data)
 {
     for (int i = 16; i > 0; i--) {
-        unsigned short mask = 1 << (i - 1);
-        GPIOWrite(CLK, 0);
+		unsigned short mask = 1 << (i - 1);
+		GPIOWrite(CLK, 0);
 		GPIOWrite(DIN, (data & mask) != 0);
 		GPIOWrite(CLK, 1);
 	}
@@ -128,12 +128,14 @@ void send_SPI_16bits(unsigned short data)
 
 void send_MAX7219(unsigned short reg_number, unsigned short data)
 {
-        send_SPI_16bits((reg_number << 8) + data);
+    send_16bits((reg_number << 8) + data);
 }
 
 void ready_to_send(int cs, unsigned short address, unsigned short data)
 {
 	GPIOWrite(cs,LOW);
+	send_MAX7219(address, data);
+	send_MAX7219(address, data);
 	send_MAX7219(address, data);
 	GPIOWrite(cs,HIGH);
 }
@@ -154,7 +156,7 @@ void update_matrix()
 
 	for (int i = 0; i < 8; i++) {
 		GPIOWrite(CS[0], LOW);
-		for (int j = 2; j >= 0; j--) 
+		for (int j = 2; j >= 0; j--)
 			send_MAX7219(i + 1, matrix[j][i]);
 		GPIOWrite(CS[0], HIGH);
 	}
@@ -177,10 +179,8 @@ void board_to_matrix()
 	}
 */
 	memset(matrix, 0, sizeof(matrix));
-	for (int i = 0; i < 8; i++)
-	{
-		for (int j = 0; j < 24; j++)
-		{
+	for (int i = 0; i < 8; i++) {
+		for (int j = 0; j < 24; j++) {
 			if (board[i][j] == 0)
 				continue;
 			int a, my, mx = i;
@@ -226,7 +226,7 @@ void update_board(t_list *bullets)
 		prev = cur;
 		cur = cur->next;
 	}
-	
+
 	pthread_mutex_lock(&matrix_mtx);
 	board_to_matrix();
 	update_matrix();
@@ -241,36 +241,36 @@ void update_board(t_list *bullets)
 
 int move_player(short key)
 {
-        if (key == UP) {
-                if (player.row <= 0)
-                        return 0;
-                --player.row;
-        }
+	if (key == UP) {
+		if (player.row <= 0)
+				return 0;
+		--player.row;
+	}
 
-        else if (key == DOWN) {
-                if (player.row >= 6)
-                        return 0;
-                ++player.row;
-        }
-
-        else if (key == LEFT) {
-                if (player.col <= 0)
-                        return 0;
-                --player.col;
-        }
-
-        else if (key == RIGHT) {
-                if (player.col >= 6)
-                        return 0;
-                ++player.col;
-        }
-		else
+	else if (key == DOWN) {
+		if (player.row >= 6)
 			return 0;
-		printf("row, col: %d %d\n", player.row, player.col);
-		pthread_mutex_lock(&board_mtx);
-		update_board(bullets);
-		pthread_mutex_unlock(&board_mtx);
-		return 1;
+		++player.row;
+	}
+
+	else if (key == LEFT) {
+		if (player.col <= 0)
+				return 0;
+		--player.col;
+	}
+
+	else if (key == RIGHT) {
+		if (player.col >= 6)
+				return 0;
+		++player.col;
+	}
+	else
+		return 0;
+	printf("row, col: %d %d\n", player.row, player.col);
+	pthread_mutex_lock(&board_mtx);
+	update_board(bullets);
+	pthread_mutex_unlock(&board_mtx);
+	return 1;
 }
 
 
@@ -422,13 +422,13 @@ void *make_bullet(void *arg) {
 			cur->next = lstnew(new_bullets[i]);
 			cur = cur->next;
 		}
-		
+
 		pthread_mutex_lock(&bullet_mtx);
 		lstadd_back(&bullets, lst);
 		pthread_mutex_unlock(&bullet_mtx);
 
 		pthread_mutex_lock(&board_mtx);
-		update_board(lst);	
+		update_board(lst);
 		pthread_mutex_unlock(&board_mtx);
 	}
 
@@ -497,7 +497,7 @@ int func()
 
 		while (1) {
 			write(sock, "0", 1);
-			usleep(200 * 1000);
+			usleep(150 * 1000);
 			if (finished) {
 				sleep(1);
 				break;
@@ -511,16 +511,16 @@ int func()
 		pthread_join(move_bullet_t, NULL);
 		memset(matrix, 0, sizeof(matrix));
 		update_matrix();
-		
+
 		if (finished)
 			break;
 	}
 
-	pthread_mutex_destroy(&string_mtx, NULL);
-	pthread_mutex_destroy(&board_mtx, NULL);
-	pthread_mutex_destroy(&matrix_mtx, NULL);
-	pthread_mutex_destroy(&bullet_mtx, NULL);
-	
+	pthread_mutex_destroy(&string_mtx);
+	pthread_mutex_destroy(&board_mtx);
+	pthread_mutex_destroy(&matrix_mtx);
+	pthread_mutex_destroy(&bullet_mtx);
+
 	state_to_finish = 0;
 	return 1;
 }
@@ -530,8 +530,6 @@ void signal_handler(int signal)
 	finished = 1;
 	memset(matrix, 0, sizeof(matrix));
 	update_matrix();
-	while (state_to_finish)
-		usleep(10);
 	exit(1);
 }
 
@@ -549,61 +547,66 @@ void set_signal()
 	act_quit.sa_flags = SA_RESTART;
 	act_quit.sa_handler = signal_handler;
 
-	if (sigaction(SIGINT, &act_int, NULL) | sigaction(SIGQUIT, &act_quit, NULL)) 
+	if (sigaction(SIGINT, &act_int, NULL) | sigaction(SIGQUIT, &act_quit, NULL))
 		error_handling("sigaction error");
 }
 
 int main(int argc, char** argv)
 {
-		struct sockaddr_in serv_addr;
+	struct sockaddr_in serv_addr;
 
-        if (init_GPIO() == -1) {
-            printf("init failed\n");
-            return 1;
-        }
+	if (init_GPIO() == -1) {
+		printf("init failed\n");
+		return 1;
+	}
 
-        if (argc != 3) {
-                printf("Usage : %s <IP> <port>\n", argv[0]);
+	if (argc != 3) {
+		printf("Usage : %s <IP> <port>\n", argv[0]);
 //              return 1;
-        }
-	
-		set_signal();
-		memset(matrix, 0, sizeof(matrix));
-		update_matrix();
+	}
 
-        if (argc == 3) {
-			char start_msg[2];
-			start_msg[0] = '0';
-            sock = socket(PF_INET, SOCK_STREAM, 0);
-            if (sock == -1)
-                error_handling("socket() error");
+	set_signal();
+	memset(matrix, 0, sizeof(matrix));
+	update_matrix();
 
-            memset(&serv_addr, 0, sizeof(serv_addr));
-            serv_addr.sin_family = AF_INET;
-            serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
-            serv_addr.sin_port = htons(atoi(argv[2]));
+	if (argc == 3) {
+		char start_msg[2];
+		start_msg[0] = '0';
+		sock = socket(PF_INET, SOCK_STREAM, 0);
+		if (sock == -1)
+			error_handling("socket() error");
 
-			if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
-				error_handling("connect() error");
+		memset(&serv_addr, 0, sizeof(serv_addr));
+        serv_addr.sin_family = AF_INET;
+		serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
+		serv_addr.sin_port = htons(atoi(argv[2]));
 
-            printf("Connection established\n");
-			while (start_msg[0] == '0') {
-				read(sock, start_msg, sizeof(start_msg));
-				if (start_msg[0] == '1') {
-					printf("Game Start!\n");	
-					break;
-				}
+		if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
+			error_handling("connect() error");
+
+		printf("Connection established\n");
+		while (start_msg[0] == '0') {
+			read(sock, start_msg, sizeof(start_msg));
+			if (start_msg[0] == '1') {
+				printf("Game Start!\n");
+				break;
 			}
-        }
+		}
+	}
 
+	memset(matrix, 0, sizeof(matrix));
+	update_matrix();
+	bullets = lstnew(NULL);
+	get_millisec(1);
+
+	if (argc == 2) {
+		printf("Hiasdf\n");
 		memset(matrix, 0, sizeof(matrix));
 		update_matrix();
-		bullets = lstnew(NULL);
-		get_millisec(1);
+		test_led();
+	}
 
-   //   test_led();
-
+	else
 		func();
-        return (0);
+	return (0);
 }
-
